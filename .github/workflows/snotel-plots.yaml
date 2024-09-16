@@ -1,7 +1,7 @@
 on:
   workflow_dispatch:
   
-name: CRMMS Summary
+name: Snotel Plots
 
 jobs:
   run-r-script:
