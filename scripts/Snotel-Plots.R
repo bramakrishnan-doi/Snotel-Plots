@@ -296,5 +296,5 @@ UC_Snowplot <- UC_Snowplot +
            label.padding=unit(0.5, "lines"),
            fill = "grey95")
 
-ggsave(here::here("AbvPowellSWE.png"), 
+ggsave("AbvPowellSWE.png", 
        width = 6.5, height = 4.75)
