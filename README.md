@@ -1,2 +1,2 @@
 # Snotel-Plots
-Generates Snotel Plots for Upper Colorado and Salr-Verde River Basins
+Generates Snotel Plots for Upper Colorado and Salt-Verde River Basins
