@@ -1,7 +1,7 @@
 on:
   workflow_dispatch:
 
-name: 07-rhdb-test
+name: Salt-Verde Snotel Plot
 
 jobs:
   run-r-script:
