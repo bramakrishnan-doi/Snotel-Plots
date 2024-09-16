@@ -89,7 +89,7 @@ SV_Snowplot <- ggplot(data=snow_final_sv) +
     legend.text=element_text(size=12)
   )
 
-if(curWY$Date > min(snow_final$Date) + 20){
+if(curWY$Date > min(snow_final_sv$Date) + 20){
   SV_Snowplot <- SV_Snowplot +
     annotate(
       geom = "segment",
@@ -104,7 +104,7 @@ if(curWY$Date > min(snow_final$Date) + 20){
              hjust="right")
 }
 
-if(curWY$Date < max(snow_final$Date) - 20){
+if(curWY$Date < max(snow_final_sv$Date) - 20){
     SV_Snowplot <- SV_Snowplot + annotate(
         geom = "segment",
         x = curWY$Date+1, yend = 15,
@@ -122,7 +122,7 @@ if(curWY$Date < max(snow_final$Date) - 20){
       geom = "segment",
       x = curWY$Date+1, yend = 15,
       xend = curWY$Date - 2 +
-        as.double(difftime(max(snow_final$Date),
+        as.double(difftime(max(snow_final_sv$Date),
                            curWY$Date, 
                            units = c("days"))), y = 15,
       # curvature = 0.1, 
