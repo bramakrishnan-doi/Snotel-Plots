@@ -130,7 +130,7 @@ if(curWY$Date < max(snow_final_sv$Date) - 20){
       arrow = arrow(length = unit(2, "mm")))
     }
 
-SV_Snowplot +
+SV_Snowplot <- SV_Snowplot +
 annotate(
     geom = "curve", xend = curWY_maxSWE$Date, 
     yend = curWY_maxSWE$swe + 0.2,x = as.Date("2023-12-31"), y=12, 
