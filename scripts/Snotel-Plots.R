@@ -58,14 +58,17 @@ maxswe <- max(snow_filt_sv$swe, na.rm = TRUE)
 ymax <- ifelse((maxswe %% 2)>1, 
                 maxswe-(maxswe %% 2) + 4, 
                 maxswe -(maxswe %% 2) +2) 
+from = as.Date(
+        paste0(ifelse(month(Sys.Date())>=1 & month(Sys.Date())<=9, 
+                      "1980-", "1979-"),format(Sys.Date(),"%m-%d")))
 
 SV_Snowplot <- ggplot(data=snow_filt_sv) +
   # geom_line(aes(x=Date, y=swe, color=factor(WY), size=factor(WY))) +
   geom_rect(data=data.frame(
-    from=as.Date(paste0("1979-",format(Sys.Date(),"%m-%d"))), 
+    from=from, 
     to=as.Date("1980-09-30")),
             aes(xmin = from, xmax=to, ymin=-Inf, ymax=Inf),
-             fill = "gray97", alpha = 0.7)+
+             fill = "gray95", alpha = 0.7)+
   geom_line(aes(x=date, y=swe, color=factor(WY), size=factor(WY))) +
   scale_color_manual(values=c("black","#9A3324","#25819C")) +
   scale_size_manual(values = c(0.8,0.8,1.2)) +
