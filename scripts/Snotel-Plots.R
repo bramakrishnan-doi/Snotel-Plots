@@ -219,7 +219,7 @@ ymax <- ifelse((maxswe %% 5)>2.5,
 
 UC_Snowplot <- ggplot(data=snow_filt) +
   geom_rect(data=data.frame(
-    from=as.Date(paste0("1979-",format(Sys.Date(),"%m-%d"))), 
+    from=from, 
     to=as.Date("1980-09-30")),
             aes(xmin = from, xmax=to, ymin=-Inf, ymax=Inf),
              fill = "gray97", alpha = 0.7)+
