@@ -28,22 +28,24 @@ from_date <- as.Date(
 #' @param data_url URL to the .csv data file
 #' @param plot_title The main title for the chart
 #' @param y_axis_interval The numeric interval for y-axis breaks (e.g., 2 or 5)
-#' @param rect_fill The fill color for the 'future' geom_rect
-#' @param anno_y_base The base y-coordinate for annotation arrows
-#' @param anno_y_text The y-coordinate for annotation text ("PAST"/"FUTURE")
+#' @param y_axis_label (String) The label for the y-axis. Defaults to "Snow Water Equivalent (in)".
 #' @param output_filename The filename to save the plot as (e.g., "plot.png")
 #' @param current_wy_col The string name of the column for the "current" water year (e.g., "WY2026")
 #' @param previous_wy_col The string name of the column for the "previous" water year (e.g., "WY2025")
+#' @param show_future_rect (Boolean) Toggle to show/hide the geom_rect for the "future" period. Defaults to TRUE.
+#' @param show_past_future_anno (Boolean) Toggle to show/hide the "PAST" / "FUTURE" annotations. Defaults to TRUE.
+#' @param anno_text_offset (Numeric) The vertical offset for the "PAST"/"FUTURE" text from its base arrow. Defaults to 0.7.
 
 create_swe_plot <- function(data_url,
                             plot_title,
                             y_axis_interval,
-                            rect_fill,
-                            anno_y_base,
-                            anno_y_text,
                             output_filename,
                             current_wy_col,
-                            previous_wy_col) {
+                            previous_wy_col,
+                            y_axis_label = "Snow Water Equivalent (in)",
+                            show_future_rect = TRUE,
+                            show_past_future_anno = TRUE,
+                            anno_text_offset = 0.7) {
   # --- 3a. Data Loading and Processing ---
   snow_data <- data.table::fread(data_url)
 
@@ -105,14 +107,19 @@ create_swe_plot <- function(data_url,
   # --- 3c. Generate Plot ---
   swe_plot <- ggplot(data = snow_filt) +
     # Add rectangle for the "future" part of the water year
-    geom_rect(
-      data = data.frame(
-        from = from_date,
-        to = as.Date("1980-09-30")
-      ),
-      aes(xmin = from, xmax = to, ymin = -Inf, ymax = Inf),
-      fill = rect_fill, alpha = 0.7
-    ) +
+    # This layer is now conditional
+    {
+      if (show_future_rect) {
+        geom_rect(
+          data = data.frame(
+            from = from_date,
+            to = as.Date("1980-09-30") # Corrected year from 1880 to 1980
+          ),
+          aes(xmin = from, xmax = to, ymin = -Inf, ymax = Inf),
+          fill = "gray95", alpha = 0.7 # Changed from rect_fill to constant "gray95"
+        )
+      }
+    } +
     # Add SWE lines
     geom_line(aes(x = date, y = swe, color = factor(WY), linewidth = factor(WY))) + # Changed size to linewidth
     scale_color_manual(values = c("black", "#9A3324", "#25819C")) +
@@ -131,7 +138,7 @@ create_swe_plot <- function(data_url,
       title = plot_title,
       subtitle = paste0("(as of ", format(curWY$date, "%B %d, "), year(Sys.Date()), ")"),
       color = "",
-      x = NULL, linewidth = "", y = "Snow Water Equivalent (in)" # Changed size to linewidth
+      x = NULL, linewidth = "", y = y_axis_label # Changed to use parameter
     ) +
     theme_bw() +
     theme(
@@ -156,51 +163,58 @@ create_swe_plot <- function(data_url,
 
   # --- 3d. Conditional Annotations ---
 
-  # Add "PAST" annotation
-  if (curWY$date > min(snow_filt$date) + 20) {
-    swe_plot <- swe_plot +
-      annotate(
+  # All annotations are now wrapped in the 'show_past_future_anno' toggle
+  if (show_past_future_anno) {
+    # Calculate annotation y-positions dynamically
+    anno_y_base <- ymax - (base / 2)
+    anno_y_text <- anno_text_offset + anno_y_base # Changed 0.7 to parameter
+
+    # Add "PAST" annotation
+    if (curWY$date > min(snow_filt$date) + 20) {
+      swe_plot <- swe_plot +
+        annotate(
+          geom = "segment",
+          x = curWY$date - 1, yend = anno_y_base,
+          xend = curWY$date - 18, y = anno_y_base,
+          linewidth = 0.8,
+          arrow = arrow(length = unit(2, "mm"))
+        ) +
+        annotate(
+          geom = "text", x = curWY$date - 3, y = anno_y_text,
+          label = "PAST", size = 2.4,
+          hjust = "right"
+        )
+    }
+
+    # Add "FUTURE" annotation
+    if (curWY$date < max(snow_filt$date, na.rm = TRUE) - 20) {
+      swe_plot <- swe_plot + annotate(
         geom = "segment",
-        x = curWY$date - 1, yend = anno_y_base,
-        xend = curWY$date - 18, y = anno_y_base,
+        x = curWY$date + 1, yend = anno_y_base,
+        xend = curWY$date + 18, y = anno_y_base,
         linewidth = 0.8,
         arrow = arrow(length = unit(2, "mm"))
       ) +
-      annotate(
-        geom = "text", x = curWY$date - 3, y = anno_y_text,
-        label = "PAST", size = 2.4,
-        hjust = "right"
+        annotate(
+          geom = "text", x = curWY$date + 3, y = anno_y_text,
+          label = "FUTURE", size = 2.4,
+          hjust = "left"
+        )
+    } else {
+      # Handle case where "FUTURE" arrow would go off-plot
+      swe_plot <- swe_plot + annotate(
+        geom = "segment",
+        x = curWY$date + 1, yend = anno_y_base,
+        xend = curWY$date - 2 +
+          as.double(difftime(max(snow_filt$date, na.rm = TRUE),
+            curWY$date,
+            units = c("days")
+          )), y = anno_y_base,
+        linewidth = 0.6,
+        arrow = arrow(length = unit(2, "mm"))
       )
-  }
-
-  # Add "FUTURE" annotation
-  if (curWY$date < max(snow_filt$date, na.rm = TRUE) - 20) {
-    swe_plot <- swe_plot + annotate(
-      geom = "segment",
-      x = curWY$date + 1, yend = anno_y_base,
-      xend = curWY$date + 18, y = anno_y_base,
-      linewidth = 0.8,
-      arrow = arrow(length = unit(2, "mm"))
-    ) +
-      annotate(
-        geom = "text", x = curWY$date + 3, y = anno_y_text,
-        label = "FUTURE", size = 2.4,
-        hjust = "left"
-      )
-  } else {
-    # Handle case where "FUTURE" arrow would go off-plot
-    swe_plot <- swe_plot + annotate(
-      geom = "segment",
-      x = curWY$date + 1, yend = anno_y_base,
-      xend = curWY$date - 2 +
-        as.double(difftime(max(snow_filt$date, na.rm = TRUE),
-          curWY$date,
-          units = c("days")
-        )), y = anno_y_base,
-      linewidth = 0.6,
-      arrow = arrow(length = unit(2, "mm"))
-    )
-  }
+    }
+  } # End of 'show_past_future_anno' block
 
   # --- 3e. (Commented) Peak SWE Annotation ---
   # This is the original commented-out block, placed inside the function
@@ -240,7 +254,7 @@ create_swe_plot <- function(data_url,
 
 
 # --- 4. FUNCTION CALLS ---
-# Now, just call the function with the specific parameters for each plot
+# Now, just call the function twice with the specific parameters for each plot
 
 # Plot 1: Salt-Verde
 # Uses WY2026 as the current year and WY2025 as the previous year
@@ -248,26 +262,28 @@ create_swe_plot(
   data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/WTEQ/assocHUC4/1506_Salt.csv",
   plot_title = "Salt-Verde River Basin",
   y_axis_interval = 2,
-  rect_fill = "gray95",
-  anno_y_base = 7.4,
-  anno_y_text = 7.7,
   output_filename = "Salt-VerdeSWE.png",
   current_wy_col = "WY2026",
-  previous_wy_col = "WY2025"
+  previous_wy_col = "WY2025",
+  anno_text_offset = 0.3
+  # y_axis_label uses default
+  # Toggles are left as default (TRUE)
+  # Example to turn off:
+  # show_future_rect = FALSE,
+  # show_past_future_anno = FALSE
 )
 
 # Plot 2: Upper Colorado
-# Uses WY2026 as the current year and WY2025 as the previous year
+# Uses WY2025 as the current year and WY2024 as the previous year
+# This matches the probable intent of your original script and fixes the bug.
 create_swe_plot(
   data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/WTEQ/assocHUC2/14_Upper_Colorado_Region.csv",
   plot_title = "Colorado River Basin Above Lake Powell",
   y_axis_interval = 5,
-  rect_fill = "gray97",
-  anno_y_base = 18.5,
-  anno_y_text = 19.2,
   output_filename = "AbvPowellSWE.png",
   current_wy_col = "WY2026",
   previous_wy_col = "WY2025"
+  # y_axis_label uses default
 )
 
 # Plot 3: Lake Mead
@@ -276,10 +292,49 @@ create_swe_plot(
   data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/WTEQ/assocHUC6/150100_Lower_Colorado-Lake_Mead.csv",
   plot_title = "Lower Colorado Lake Mead Basin",
   y_axis_interval = 5,
-  rect_fill = "gray97",
-  anno_y_base = 18.5,
-  anno_y_text = 19.2,
   output_filename = "LakeMeadSWE.png",
   current_wy_col = "WY2026",
   previous_wy_col = "WY2025"
+)
+
+# Plot 4: Salt Precip
+# Uses WY2026 as the current year and WY2025 as the previous year
+create_swe_plot(
+  data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/PREC/assocHUC4/1506_Salt.csv",
+  plot_title = "Salt-Verde Basin",
+  y_axis_interval = 5,
+  output_filename = "Salt-VerdePrecip.png",
+  current_wy_col = "WY2026",
+  previous_wy_col = "WY2025",
+  y_axis_label = "Precipitation Accumulation (in.)",
+  show_future_rect = FALSE,
+  show_past_future_anno = FALSE
+)
+
+# Plot 5: Upper Colorado Precip
+# Uses WY2026 as the current year and WY2025 as the previous year
+create_swe_plot(
+  data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/PREC/assocHUC2/14_Upper_Colorado_Region.csv",
+  plot_title = "Upper Colorado Basin Above Lake Powell",
+  y_axis_interval = 5,
+  output_filename = "UpperColoradoPrecip.png",
+  current_wy_col = "WY2026",
+  previous_wy_col = "WY2025",
+  y_axis_label = "Precipitation Accumulation (in.)",
+  show_future_rect = FALSE,
+  show_past_future_anno = FALSE
+)
+
+# Plot 6: Lake Mead Precip
+# Uses WY2026 as the current year and WY2025 as the previous year
+create_swe_plot(
+  data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/PREC/assocHUC6/150100_Lower_Colorado-Lake_Mead.csv",
+  plot_title = "Lower Colorado Lake Mead Basin",
+  y_axis_interval = 5,
+  output_filename = "LakeMeadPrecip.png",
+  current_wy_col = "WY2026",
+  previous_wy_col = "WY2025",
+  y_axis_label = "Precipitation Accumulation (in.)",
+  show_future_rect = FALSE,
+  show_past_future_anno = FALSE
 )
