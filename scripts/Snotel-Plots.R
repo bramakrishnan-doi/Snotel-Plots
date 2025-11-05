@@ -249,7 +249,7 @@ create_swe_plot <- function(data_url,
   )
   
   # Optional: Print the plot to the R session
-  print(swe_plot)
+  # print(swe_plot)
 }
 
 
