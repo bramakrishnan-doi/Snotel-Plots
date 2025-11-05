@@ -17,24 +17,24 @@ previousMonth <- floor_date(Sys.Date(), "month") - months(1)
 
 
 
-snow_filt_sv <- snow_sv[,.(date,WY2024,WY2025,`Median ('91-'20)`)] %>% 
+snow_filt_sv <- snow_sv[,.(date,WY2025,WY2026,`Median ('91-'20)`)] %>% 
   mutate(mon = as.numeric(str_extract(date,"^[0-9]{2}")),
          date = as.Date(paste0(date,"-",ifelse(mon>9,1979,1980)), "%m-%d-%Y")) %>% 
   pivot_longer(!c(date,mon), names_to = "WY", values_to = "swe") %>% 
   mutate(WY = case_when(
+    WY=="WY2026" ~ "Water Year: 2026",
     WY=="WY2025" ~ "Water Year: 2025",
-    WY=="WY2024" ~ "Water Year: 2024",
     .default = "Median 1991-2020"
     ))
 
 
 
 curWY <- snow_filt_sv %>%
-  filter(WY == "Water Year: 2025" & !is.na(swe)) %>%
+  filter(WY == "Water Year: 2026" & !is.na(swe)) %>%
   filter(date == max(date))
 
 curWY_maxSWE <- snow_filt_sv %>%
-  filter(WY == "Water Year: 2025") %>%
+  filter(WY == "Water Year: 2026") %>%
   filter(swe==max(swe, na.rm = T))
 
 
@@ -180,19 +180,19 @@ snow_filt <- snow[,.(date,WY2024,WY2025,`Median ('91-'20)`)] %>%
          date = as.Date(paste0(date,"-",ifelse(mon>9,1979,1980)), "%m-%d-%Y")) %>% 
   pivot_longer(!c(date,mon), names_to = "WY", values_to = "swe") %>% 
   mutate(WY = case_when(
+    WY=="WY2026" ~ "Water Year: 2026",
     WY=="WY2025" ~ "Water Year: 2025",
-    WY=="WY2024" ~ "Water Year: 2024",
     .default = "Median 1991-2020"
   ))
 
 
 
 curWY <- snow_filt %>%
-  filter(WY == "Water Year: 2025" & !is.na(swe)) %>%
+  filter(WY == "Water Year: 2026" & !is.na(swe)) %>%
   filter(date == max(date))
 
 curWY_maxSWE <- snow_filt %>%
-  filter(WY == "Water Year: 2025") %>%
+  filter(WY == "Water Year: 2026") %>%
   filter(swe==max(swe, na.rm = T))
 
 
