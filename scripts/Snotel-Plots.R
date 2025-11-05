@@ -114,9 +114,9 @@ create_swe_plot <- function(data_url,
       fill = rect_fill, alpha = 0.7
     ) +
     # Add SWE lines
-    geom_line(aes(x = date, y = swe, color = factor(WY), size = factor(WY))) +
+    geom_line(aes(x = date, y = swe, color = factor(WY), linewidth = factor(WY))) + # Changed size to linewidth
     scale_color_manual(values = c("black", "#9A3324", "#25819C")) +
-    scale_size_manual(values = c(0.8, 0.8, 1.2)) +
+    scale_linewidth_manual(values = c(0.8, 0.8, 1.2)) + # Changed scale_size_manual to scale_linewidth_manual
     scale_x_date(
       date_breaks = "1 months", date_labels = "%b",
       limits = c(as.Date("1979-10-01"), as.Date("1980-09-30")),
@@ -131,7 +131,7 @@ create_swe_plot <- function(data_url,
       title = plot_title,
       subtitle = paste0("(as of ", format(curWY$date, "%B %d, "), year(Sys.Date()), ")"),
       color = "",
-      x = NULL, size = "", y = "Snow Water Equivalent (in)"
+      x = NULL, linewidth = "", y = "Snow Water Equivalent (in)" # Changed size to linewidth
     ) +
     theme_bw() +
     theme(
@@ -203,6 +203,7 @@ create_swe_plot <- function(data_url,
   }
 
   # --- 3e. (Commented) Peak SWE Annotation ---
+  # This is the original commented-out block, placed inside the function
   # You can re-enable and customize coordinates as needed
 
   # caption = paste(strwrap(paste0(
