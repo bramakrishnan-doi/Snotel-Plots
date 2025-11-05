@@ -240,7 +240,7 @@ create_swe_plot <- function(data_url,
 
 
 # --- 4. FUNCTION CALLS ---
-# Now, just call the function twice with the specific parameters for each plot
+# Now, just call the function with the specific parameters for each plot
 
 # Plot 1: Salt-Verde
 # Uses WY2026 as the current year and WY2025 as the previous year
@@ -257,8 +257,7 @@ create_swe_plot(
 )
 
 # Plot 2: Upper Colorado
-# Uses WY2025 as the current year and WY2024 as the previous year
-# This matches the probable intent of your original script and fixes the bug.
+# Uses WY2026 as the current year and WY2025 as the previous year
 create_swe_plot(
   data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/WTEQ/assocHUC2/14_Upper_Colorado_Region.csv",
   plot_title = "Colorado River Basin Above Lake Powell",
@@ -267,6 +266,20 @@ create_swe_plot(
   anno_y_base = 18.5,
   anno_y_text = 19.2,
   output_filename = "AbvPowellSWE.png",
+  current_wy_col = "WY2026",
+  previous_wy_col = "WY2025"
+)
+
+# Plot 3: Lake Mead
+# Uses WY2026 as the current year and WY2025 as the previous year
+create_swe_plot(
+  data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/WTEQ/assocHUC6/150100_Lower_Colorado-Lake_Mead.csv",
+  plot_title = "Lower Colorado Lake Mead Basin",
+  y_axis_interval = 5,
+  rect_fill = "gray97",
+  anno_y_base = 18.5,
+  anno_y_text = 19.2,
+  output_filename = "LakeMeadSWE.png",
   current_wy_col = "WY2026",
   previous_wy_col = "WY2025"
 )
