@@ -2,13 +2,13 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: "0 14 * * *"
+    - cron: "0 15 * * *"
 
-name: Snotel Plots
+name: Precip and Snotel Plots
 
 jobs:
   run-r-script:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     env: 
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}    
     steps:
@@ -18,7 +18,9 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          # cache: false
           cache-version: 2
+          # dependencies: '"hard"'
           packages:
             any::ggplot2
             any::tidyverse
