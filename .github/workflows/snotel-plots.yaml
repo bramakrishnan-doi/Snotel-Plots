@@ -31,7 +31,7 @@ jobs:
       - name: run-script
         run: Rscript scripts/Snotel-Plots.R        
         
-            - name: Deploy Plots to Pages Branch
+      - name: Deploy Plots to Pages Branch
         run: |
           # 1. Create a pristine temporary staging directory outside the git tree
           mkdir -p ../temp_assets
