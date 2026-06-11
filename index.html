@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Water Year 2026 Snowpack and Precipitation</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f4f7fb;
+      color: #0b4f63;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 36px 56px 28px;
+      background: #ffffff;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    .logo {
+      position: absolute;
+      top: 28px;
+      right: 56px;
+      width: 105px;
+      height: auto;
+      z-index: 10;
+    }
+
+    .title-block {
+      text-align: center;
+      margin: 0 150px 28px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 42px;
+      font-weight: 600;
+      color: #0b4f63;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      font-size: 23px;
+      color: #0b4f63;
+    }
+
+    .section {
+      margin-bottom: 38px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 26px 22px;
+      align-items: start;
+    }
+
+    .card {
+      text-align: center;
+      min-width: 0;
+    }
+
+    .basin-title {
+      margin: 0 0 12px;
+      font-size: 25px;
+      font-weight: 500;
+      color: #0b4f63;
+      min-height: 34px;
+    }
+
+    .chart {
+      width: 100%;
+      max-width: 455px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      border: 1px solid #d8dde3;
+      background: #ffffff;
+      box-shadow: 0 6px 16px rgba(11, 79, 99, 0.18);
+    }
+
+    .status {
+      margin: 16px 0 0;
+      font-size: 25px;
+      font-weight: 700;
+      color: #0b4f63;
+      min-height: 34px;
+    }
+
+    .footnote {
+      margin: 10px 0 0;
+      font-size: 14px;
+      line-height: 1.35;
+      color: #0b4f63;
+    }
+
+    .superscript {
+      vertical-align: super;
+      font-size: 0.62em;
+      line-height: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .page {
+        padding: 28px 24px;
+      }
+
+      .logo {
+        top: 18px;
+        right: 24px;
+        width: 80px;
+      }
+
+      .title-block {
+        margin: 0 120px 24px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      .subtitle {
+        font-size: 20px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .chart {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <img class="logo" src="BofR-vert.png" alt="Bureau of Reclamation logo" />
+
+    <section class="section" aria-labelledby="snowpack-title">
+      <div class="title-block">
+        <h1 id="snowpack-title">Water Year 2026 Snowpack<sup class="superscript">1</sup></h1>
+        <div class="subtitle">as of June 11, 2026</div>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <h2 class="basin-title">Upper Colorado River Basin</h2>
+          <img class="chart" src="AbvPowellSWE.png" alt="Upper Colorado River Basin snowpack chart" />
+          <!-- <div class="status">Basin Snowpack - NA</div> -->
+        </article>
+
+        <article class="card">
+          <h2 class="basin-title">Lake Mead Basin</h2>
+          <img class="chart" src="LakeMeadSWE.png" alt="Lake Mead Basin snowpack chart" />
+          <!-- <div class="status">Basin Snowpack - NA</div> -->
+        </article>
+
+        <article class="card">
+          <h2 class="basin-title">Salt - Verde River Basin</h2>
+          <img class="chart" src="Salt-VerdeSWE.png" alt="Salt - Verde River Basin snowpack chart" />
+          <!-- <div class="status">Basin Snowpack - NA</div> -->
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="precipitation-title">
+      <div class="title-block">
+        <h1 id="precipitation-title">Water Year 2026 Precipitation<sup class="superscript">1</sup></h1>
+        <div class="subtitle">as of June 11, 2026</div>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <h2 class="basin-title">Upper Colorado River Basin</h2>
+          <img class="chart" src="UpperColoradoPrecip.png" alt="Upper Colorado River Basin precipitation chart" />
+          <!-- <div class="status">Precipitation - 81%</div> -->
+        </article>
+
+        <article class="card">
+          <h2 class="basin-title">Lake Mead Basin</h2>
+          <img class="chart" src="LakeMeadPrecip.png" alt="Lake Mead Basin precipitation chart" />
+          <!-- <div class="status">Precipitation - 110%</div> -->
+        </article>
+
+        <article class="card">
+          <h2 class="basin-title">Salt - Verde River Basin</h2>
+          <img class="chart" src="Salt-VerdePrecip.png" alt="Salt - Verde River Basin precipitation chart" />
+          <!-- <div class="status">Precipitation - 87%</div> -->
+        </article>
+      </div>
+    </section>
+
+    <p class="footnote">
+      <sup class="superscript">1</sup> Percent of normal precipitation is based on an arithmetic mean, or average; percent of normal snowpack is based on the median value for a given date. Water Year statistics are based on the 30-year period from 1991-2020.
+    </p>
+  </main>
+</body>
+</html>
