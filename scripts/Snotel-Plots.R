@@ -6,6 +6,9 @@ library(data.table)
 library(ggforce)
 library(lubridate) # Added for floor_date, month, year
 
+# --- NEW: Increase download timeout for slow government servers ---
+options(timeout = 300)
+
 # --- 2. GLOBAL VARIABLES ---
 # Calculate the 'from' date once, as it's the same for all plots
 # This creates a date for the current month and day in the "dummy" water year
@@ -23,18 +26,19 @@ from_date <- as.Date(
 # Define a single function to download, process, and plot the data
 # This eliminates ~90% of the code duplication
 
-#' Generate and save a Snow Water Equivalent (SWE) plot
+#' Generate and save a Snow Water Equivalent (SWE) or Precip plot
 #'
 #' @param data_url URL to the .csv data file
 #' @param plot_title The main title for the chart
-#' @param y_axis_interval The numeric interval for y-axis breaks (e.g., 2 or 5)
-#' @param y_axis_label (String) The label for the y-axis. Defaults to "Snow Water Equivalent (in)".
-#' @param output_filename The filename to save the plot as (e.g., "plot.png")
+#' @param y_axis_interval The numeric interval for y-axis breaks
+#' @param output_filename The filename to save the plot as
 #' @param current_wy_col The string name of the column for the "current" water year (e.g., "WY2026")
 #' @param previous_wy_col The string name of the column for the "previous" water year (e.g., "WY2025")
-#' @param show_future_rect (Boolean) Toggle to show/hide the geom_rect for the "future" period. Defaults to TRUE.
-#' @param show_past_future_anno (Boolean) Toggle to show/hide the "PAST" / "FUTURE" annotations. Defaults to TRUE.
-#' @param anno_text_offset (Numeric) The vertical offset for the "PAST"/"FUTURE" text from its base arrow. Defaults to 0.7.
+#' @param y_axis_label The label for the y-axis.
+#' @param show_future_rect (Boolean) Toggle to show/hide the gray "future" rectangle.
+#' @param show_past_future_anno (Boolean) Toggle to show/hide "PAST" / "FUTURE" arrows.
+#' @param anno_text_offset (Numeric) Vertical offset for annotation text.
+#' @param days_to_remove (Numeric) Number of days to strip from the end of the current WY (to fix bad data).
 
 create_swe_plot <- function(data_url,
                             plot_title,
@@ -45,9 +49,34 @@ create_swe_plot <- function(data_url,
                             y_axis_label = "Snow Water Equivalent (in)",
                             show_future_rect = TRUE,
                             show_past_future_anno = TRUE,
-                            anno_text_offset = 0.7) {
+                            anno_text_offset = 0.7,
+                            days_to_remove = 0) {
+  
   # --- 3a. Data Loading and Processing ---
-  snow_data <- data.table::fread(data_url)
+  csv_name <- paste0(tools::file_path_sans_ext(output_filename), "_data.csv")
+  
+  # Direct connection using httr from the new macOS runner IP
+  response <- httr::GET(
+    data_url,
+    httr::add_headers(
+      `User-Agent` = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      `Accept` = "text/csv, application/csv, */*"
+    ),
+    httr::write_disk(csv_name, overwrite = TRUE)
+  )
+  
+  # Check if the download was successful
+  if (httr::status_code(response) != 200) {
+    stop(paste("Download failed - HTTP status:", httr::status_code(response)))
+  }
+  
+  # Read from the successfully downloaded local file
+  snow_data <- data.table::fread(csv_name)
+
+  # NEW: Save the downloaded CSV to the current folder
+  # This creates a name like "Salt-VerdeSWE_data.csv" based on your plot name
+  csv_name <- paste0(tools::file_path_sans_ext(output_filename), "_data.csv")
+  data.table::fwrite(snow_data, csv_name)
 
   # Get location of column names that end with a number (years)
   cnames <- grep("\\D+$", colnames(snow_data), invert = TRUE)
@@ -63,7 +92,6 @@ create_swe_plot <- function(data_url,
   previous_wy_label <- paste("Water Year:", sub("WY", "", previous_wy_col))
 
   # Filter and shape the data
-  # NOTE: This now dynamically selects the columns passed to the function
   snow_filt <- snow_data[, ..selected_cols] %>%
     mutate(
       mon = as.numeric(str_extract(date, "^[0-9]{2}")),
@@ -73,28 +101,43 @@ create_swe_plot <- function(data_url,
     pivot_longer(!c(date, mon), names_to = "WY", values_to = "swe") %>%
     mutate(
       WY = case_when(
-        # Use the dynamic column and label variables
         WY == current_wy_col ~ current_wy_label,
         WY == previous_wy_col ~ previous_wy_label,
         .default = "Median 1991-2020"
       )
     )
+  
+  # --- LEAP YEAR CHECK ---
+  target_year <- as.numeric(gsub("\\D", "", current_wy_col))
+  if (!lubridate::leap_year(target_year)) {
+    snow_filt <- snow_filt %>%
+      mutate(swe = ifelse(format(date, "%m-%d") == "02-29" & WY == current_wy_label, 
+                          NA, swe))
+  }
+
+  # --- TRIMMING BAD DATA AT END ---
+  # If the user specifies days to remove, we find the last entries for the current WY and make them NA
+  if (days_to_remove > 0) {
+    # Find row indices for the current water year that aren't already NA
+    current_wy_indices <- which(snow_filt$WY == current_wy_label & !is.na(snow_filt$swe))
+    
+    if (length(current_wy_indices) >= days_to_remove) {
+      # Target the very last N indices recorded
+      to_remove <- tail(current_wy_indices, days_to_remove)
+      snow_filt$swe[to_remove] <- NA
+    }
+  }
 
   # --- 3b. Plot Calculations ---
-  # Get the most recent data point for the current water year
+  # Get the most recent data point for the current water year (post-trimming)
   curWY <- snow_filt %>%
-    filter(WY == current_wy_label & !is.na(swe)) %>% # Use dynamic label
+    filter(WY == current_wy_label & !is.na(swe)) %>% 
     filter(date == max(date))
 
   # Find the peak SWE for the current water year
   curWY_maxSWE <- snow_filt %>%
-    filter(WY == current_wy_label) %>% # Use dynamic label
-    filter(swe == max(swe, na.rm = T))
-
-  # Find the median SWE on the same date as the current year's peak
-  med_SWE <- snow_filt %>%
-    filter(str_detect(WY, "Median")) %>%
-    filter(date == curWY_maxSWE$date)
+    filter(WY == current_wy_label) %>% 
+    filter(swe == max(swe, na.rm = TRUE))
 
   # Dynamic Y-axis limit calculation
   maxswe <- max(snow_filt$swe, na.rm = TRUE)
@@ -106,24 +149,21 @@ create_swe_plot <- function(data_url,
 
   # --- 3c. Generate Plot ---
   swe_plot <- ggplot(data = snow_filt) +
-    # Add rectangle for the "future" part of the water year
-    # This layer is now conditional
     {
       if (show_future_rect) {
         geom_rect(
           data = data.frame(
             from = from_date,
-            to = as.Date("1980-09-30") # Corrected year from 1880 to 1980
+            to = as.Date("1980-09-30")
           ),
           aes(xmin = from, xmax = to, ymin = -Inf, ymax = Inf),
-          fill = "gray95", alpha = 0.7 # Changed from rect_fill to constant "gray95"
+          fill = "gray95", alpha = 0.7
         )
       }
     } +
-    # Add SWE lines
-    geom_line(aes(x = date, y = swe, color = factor(WY), linewidth = factor(WY))) + # Changed size to linewidth
+    geom_line(aes(x = date, y = swe, color = factor(WY), linewidth = factor(WY))) + 
     scale_color_manual(values = c("black", "#9A3324", "#25819C")) +
-    scale_linewidth_manual(values = c(0.8, 0.8, 1.2)) + # Changed scale_size_manual to scale_linewidth_manual
+    scale_linewidth_manual(values = c(0.8, 0.8, 1.2)) + 
     scale_x_date(
       date_breaks = "1 months", date_labels = "%b",
       limits = c(as.Date("1979-10-01"), as.Date("1980-09-30")),
@@ -137,119 +177,42 @@ create_swe_plot <- function(data_url,
     labs(
       title = plot_title,
       subtitle = paste0("(as of ", format(curWY$date, "%B %d, "), year(Sys.Date()), ")"),
-      color = "",
-      x = NULL, linewidth = "", y = y_axis_label # Changed to use parameter
+      color = "", x = NULL, linewidth = "", y = y_axis_label
     ) +
     theme_bw() +
     theme(
-      plot.title = element_text(hjust = 0.5,
-                                color = "black",
-                                size = 16, face = "bold"),
+      plot.title = element_text(hjust = 0.5, color = "black", size = 14, face = "bold"),
       plot.subtitle = element_text(hjust = 0.5, color = "black", size = 12),
       panel.grid.major = element_line(colour = "grey85"),
-      panel.grid.minor.x = element_blank(),
-      panel.grid.minor.y = element_blank(),
-      axis.text.x = element_text(
-        vjust = 0.5,
-        hjust = 0.5, color = "black",
-        size = 10
-      ),
-      axis.text.y = element_text(color = "black", size = 10),
-      axis.title = element_text(size = 12),
+      panel.grid.minor = element_blank(),
+      axis.text = element_text(color = "black", size = 10),
       axis.title.y = element_text(margin = margin(r = 0.15, l = 0.1, unit = "in")),
       legend.position = "bottom",
       legend.text = element_text(size = 12)
     )
 
   # --- 3d. Conditional Annotations ---
-
-  # All annotations are now wrapped in the 'show_past_future_anno' toggle
   if (show_past_future_anno) {
-    # Calculate annotation y-positions dynamically
     anno_y_base <- ymax - (base / 2)
-    anno_y_text <- anno_text_offset + anno_y_base # Changed 0.7 to parameter
+    anno_y_text <- anno_text_offset + anno_y_base 
 
-    # Add "PAST" annotation
     if (curWY$date > min(snow_filt$date) + 20) {
       swe_plot <- swe_plot +
-        annotate(
-          geom = "segment",
-          x = curWY$date - 1, yend = anno_y_base,
-          xend = curWY$date - 18, y = anno_y_base,
-          linewidth = 0.8,
-          arrow = arrow(length = unit(2, "mm"))
-        ) +
-        annotate(
-          geom = "text", x = curWY$date - 3, y = anno_y_text,
-          label = "PAST", size = 2.4,
-          hjust = "right"
-        )
+        annotate("segment", x = curWY$date - 1, yend = anno_y_base, xend = curWY$date - 18, 
+                 y = anno_y_base, linewidth = 0.8, arrow = arrow(length = unit(2, "mm"))) +
+        annotate("text", x = curWY$date - 3, y = anno_y_text, label = "PAST", size = 2.4, hjust = "right")
     }
 
-    # Add "FUTURE" annotation
     if (curWY$date < max(snow_filt$date, na.rm = TRUE) - 20) {
-      swe_plot <- swe_plot + annotate(
-        geom = "segment",
-        x = curWY$date + 1, yend = anno_y_base,
-        xend = curWY$date + 18, y = anno_y_base,
-        linewidth = 0.8,
-        arrow = arrow(length = unit(2, "mm"))
-      ) +
-        annotate(
-          geom = "text", x = curWY$date + 3, y = anno_y_text,
-          label = "FUTURE", size = 2.4,
-          hjust = "left"
-        )
-    } else {
-      # Handle case where "FUTURE" arrow would go off-plot
-      swe_plot <- swe_plot + annotate(
-        geom = "segment",
-        x = curWY$date + 1, yend = anno_y_base,
-        xend = curWY$date - 2 +
-          as.double(difftime(max(snow_filt$date, na.rm = TRUE),
-            curWY$date,
-            units = c("days")
-          )), y = anno_y_base,
-        linewidth = 0.6,
-        arrow = arrow(length = unit(2, "mm"))
-      )
+      swe_plot <- swe_plot + 
+        annotate("segment", x = curWY$date + 1, yend = anno_y_base, xend = curWY$date + 18, 
+                 y = anno_y_base, linewidth = 0.8, arrow = arrow(length = unit(2, "mm"))) +
+        annotate("text", x = curWY$date + 3, y = anno_y_text, label = "FUTURE", size = 2.4, hjust = "left")
     }
-  } # End of 'show_past_future_anno' block
-
-  # --- 3e. (Commented) Peak SWE Annotation ---
-  # This is the original commented-out block, placed inside the function
-  # You can re-enable and customize coordinates as needed
-
-  # caption = paste(strwrap(paste0(
-  #   "SWE peaked at ",
-  #   round(curWY_maxSWE$swe/med_SWE$swe*100,0),
-  #   "% of the peak seasonal median on ",
-  #   format(curWY_maxSWE$Date, "%B %d, %Y"),"."),
-  #   25),
-  #   collapse = "\n")
-  #
-  # swe_plot <- swe_plot +
-  #   annotate(
-  #     geom = "curve", xend = curWY_maxSWE$date,
-  #     yend = curWY_maxSWE$swe + 0.2,x = as.Date("1980-01-31"), y= (ymax * 0.8), # Example dynamic Y
-  #     curvature = -.3, arrow = arrow(length = unit(2, "mm"))
-  #   ) +
-  #   annotate("label",
-  #     x = as.Date("1979-12-31"),
-  #     y = (ymax * 0.8), # Example dynamic Y
-  #     label = caption,
-  #     size = 3,
-  #     label.padding=unit(0.5, "lines"),
-  #     fill = "grey95")
+  }
 
   # --- 3f. Save Plot ---
-  ggsave(output_filename,
-    plot = swe_plot,
-    width = 6.5, height = 4.75
-  )
-  
-  # Optional: Print the plot to the R session
-  # print(swe_plot)
+  ggsave(output_filename, plot = swe_plot, width = 6.5, height = 4.75)
 }
 
 
@@ -260,12 +223,13 @@ create_swe_plot <- function(data_url,
 # Uses WY2026 as the current year and WY2025 as the previous year
 create_swe_plot(
   data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/WTEQ/assocHUC4/1506_Salt.csv",
-  plot_title = "Salt-Verde River Basin",
+  plot_title = "Salt-Verde River Basin Snowpack",
   y_axis_interval = 2,
   output_filename = "Salt-VerdeSWE.png",
   current_wy_col = "WY2026",
   previous_wy_col = "WY2025",
-  anno_text_offset = 0.3
+  anno_text_offset = 0.3,
+  days_to_remove = 0
   # y_axis_label uses default
   # Toggles are left as default (TRUE)
   # Example to turn off:
@@ -278,11 +242,12 @@ create_swe_plot(
 # This matches the probable intent of your original script and fixes the bug.
 create_swe_plot(
   data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/WTEQ/assocHUC2/14_Upper_Colorado_Region.csv",
-  plot_title = "Colorado River Basin Above Lake Powell",
+  plot_title = "Colorado River Basin Snowpack Above Lake Powell",
   y_axis_interval = 5,
   output_filename = "AbvPowellSWE.png",
   current_wy_col = "WY2026",
-  previous_wy_col = "WY2025"
+  previous_wy_col = "WY2025",
+  days_to_remove = 0
   # y_axis_label uses default
 )
 
@@ -290,11 +255,12 @@ create_swe_plot(
 # Uses WY2026 as the current year and WY2025 as the previous year
 create_swe_plot(
   data_url = "https://nwcc-apps.sc.egov.usda.gov/awdb/basin-plots/POR/WTEQ/assocHUC6/150100_Lower_Colorado-Lake_Mead.csv",
-  plot_title = "Lower Colorado Lake Mead Basin",
+  plot_title = "Lower Colorado Lake Mead Basin Snowpack",
   y_axis_interval = 5,
   output_filename = "LakeMeadSWE.png",
   current_wy_col = "WY2026",
-  previous_wy_col = "WY2025"
+  previous_wy_col = "WY2025",
+  days_to_remove = 0
 )
 
 # Plot 4: Salt Precip
