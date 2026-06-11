@@ -5,7 +5,7 @@ on:
 
 name: Precip and Snotel Plots
 
-# Grant write permission to the GITHUB_TOKEN
+# Grant write permission to push to the gh-pages branch
 permissions:
   contents: write
 
@@ -16,9 +16,11 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true    
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      # actions/checkout@v4.1.1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  
       
-      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2
+      # r-lib/actions/setup-r@v2.11.0
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e 
         with: 
           use-public-rspm: true
 
@@ -29,10 +31,45 @@ jobs:
       - name: run-script
         run: Rscript scripts/Snotel-Plots.R        
         
-      - name: commit files
+            - name: Deploy Plots to Pages Branch
         run: |
-          git config --local user.name "$GITHUB_ACTOR"
-          git config --local user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          # 1. Create a pristine temporary staging directory outside the git tree
+          mkdir -p ../temp_assets
+          
+          # 2. Check if index.html exists in the default checked-out directory and copy it
+          if [ -f "index.html" ]; then
+            cp index.html ../temp_assets/
+            echo "✅ Successfully staged index.html"
+          else
+            echo "❌ ERROR: index.html not found in the root directory!"
+            exit 1
+          fi
+          
+          # 3. Explicitly find and copy all generated PNG files from the root directory
+          if ls *.png 1> /dev/null 2>&1; then
+            cp *.png ../temp_assets/
+            echo "✅ Successfully staged generated plots:"
+            ls *.png
+          else
+            echo "❌ ERROR: No .png files found in the root directory! Check your R script output path."
+            exit 1
+          fi
+          
+          # 4. Configure Git identity explicitly using the standard GitHub Action Bot
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@://github.com"
+          
+          # 5. Fetch, create, and hard-switch to a clean gh-pages tracking branch
+          git fetch origin gh-pages --depth=1 || true
+          git checkout -B gh-pages
+          
+          # 6. Completely wipe out any legacy branch files tracking this environment
+          rm -rf *
+          
+          # 7. Copy the fresh static dashboard assets back into the empty root
+          cp -r ../temp_assets/* .
+          
+          # 8. Force commit and push the clean updates live
           git add -A
-          git commit -m "Saving the results" || echo "no changes to commit"
-          git push origin || echo "no changes to commit"
+          git commit -m "Automated Snotel update: $(date -u +'%Y-%m-%d %H:%M:%S') UTC"
+          git push origin gh-pages --force
