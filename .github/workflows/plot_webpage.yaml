@@ -3,7 +3,7 @@ on:
   schedule:
     - cron: "0 15 * * *"
 
-name: Precip and Snotel Plots
+name: Precip and Snotel Plots-Claude
 
 # Permissions required to publish to GitHub Pages
 permissions:
