@@ -1,0 +1,55 @@
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 15 * * *"
+
+name: Precip and Snotel Plots
+
+# Permissions required to publish to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one Pages deployment at a time
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e  # v2
+        with:
+          use-public-rspm: true
+
+      - name: Install Packages
+        run: |
+          Rscript -e 'install.packages(c("ggplot2", "tidyverse", "data.table", "ggforce", "httr", "lubridate"))'
+
+      - name: Run R script (generates plots + public/index.html)
+        run: Rscript scripts/Snotel-Plots.R
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
